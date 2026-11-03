@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<!--
+  보고서 템플릿. deploy.py 가 {{키}} 자리를 실제 배포 결과로 바꾼 뒤
+  헤드리스 브라우저(Chrome/Edge)로 PDF 를 만듭니다. 직접 수정해도 됩니다.
+-->
+<title>미션 17 보고서 – MNIST 손글씨 숫자 인식 서비스</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  :root { --ink:#1f2328; --muted:#5b6470; --line:#d9dde3; --accent:#E4572E; --soft:#f5f6f8; }
+  * { box-sizing: border-box; }
+  body { font-family: "Noto Sans CJK KR", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+         color: var(--ink); font-size: 10.2pt; line-height: 1.62; margin: 0; }
+  h1 { font-size: 21pt; margin: 0 0 4px; letter-spacing: -0.3px; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--ink); break-after: avoid; }
+  h3 { font-size: 11.2pt; margin: 16px 0 6px; break-after: avoid; }
+  h2 .no { color: var(--accent); margin-right: 6px; }
+  p { margin: 6px 0; }
+  .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 10px; font-size: 9.4pt; break-inside: avoid; }
+  th, td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: 700; border-top: 1px solid var(--line); }
+  td { word-break: break-all; }
+  code, pre { font-family: "DejaVu Sans Mono", Consolas, Menlo, monospace; }
+  code { font-size: 8.6pt; background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  pre { font-size: 8.1pt; line-height: 1.45; background: #f6f8fa; border: 1px solid var(--line);
+        border-left: 3px solid var(--accent); border-radius: 4px; padding: 8px 10px; margin: 6px 0 10px;
+        white-space: pre-wrap; break-inside: avoid; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .cover { border-bottom: 3px solid var(--accent); padding-bottom: 12px; margin-bottom: 6px; }
+  .meta { width: auto; margin-top: 10px; font-size: 9.6pt; }
+  .meta td { border: 0; padding: 1px 12px 1px 0; }
+  .meta td:first-child { color: var(--muted); white-space: nowrap; }
+  .hub { font-family: "DejaVu Sans Mono", Consolas, Menlo, monospace; font-size: 9.2pt; background: #fff4ef;
+         border: 1px solid #f3c3b2; padding: 1px 6px; border-radius: 3px; }
+  figure { margin: 10px 0 12px; break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 4px; }
+  .box { background: var(--soft); border-radius: 5px; padding: 8px 12px; margin: 8px 0; break-inside: avoid; }
+  .flow { width: 100%; border-collapse: separate; border-spacing: 0; margin: 10px 0 12px; font-size: 8.8pt; }
+  .flow td { border: 1px solid var(--line); border-radius: 4px; text-align: center; padding: 6px 4px; }
+  .flow td.arrow { border: 0; color: var(--accent); font-weight: 700; width: 14px; padding: 0; }
+  .flow b { display: block; font-size: 9.2pt; }
+  ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+  li { margin: 2px 0; }
+  .footer { margin-top: 18px; font-size: 8.4pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="muted" style="font-size:9.5pt">미션 17 · 모델 서빙 &amp; 배포</div>
+  <h1>MNIST 손글씨 숫자 인식 서비스</h1>
+  <div class="muted">Streamlit + ONNX Runtime 기반 실시간 추론 웹 서비스와 Docker 배포</div>
+  <table class="meta">
+    <tr><td>팀 / 이름</td><td>{{TEAM}} / {{NAME}}</td></tr>
+    <tr><td>작성일</td><td>{{DATE}}</td></tr>
+    <tr><td>Docker Hub</td><td><span class="hub">{{HUB_URL}}</span></td></tr>
+    <tr><td>실행 방법</td><td><code>docker run -p 8501:8501 {{IMAGE}}</code></td></tr>
+  </table>
+</div>
+
+<h2><span class="no">1.</span>프로젝트 개요</h2>
+<p>사용자가 브라우저 캔버스에 마우스로 그린 숫자(0~9)를 ONNX Model Zoo의 사전 학습 모델
+<code>mnist-12.onnx</code>로 실시간 인식하는 웹 서비스를 구현하였다. 그린 이미지를 모델 입력 사양에 맞게
+전처리하는 과정과 각 레이블의 예측 확률을 화면에 함께 보여 주어, 모델이 무엇을 보고 어떻게 판단하는지
+확인할 수 있도록 하였다. 완성된 서비스는 Docker 이미지로 패키징하여 Docker Hub에 배포하였으며,
+빌드 · 테스트 · 배포 · 보고서 작성 과정을 <code>deploy.py</code> 하나로 자동화하였다.</p>
+
+<h3>1.1 목표와 요구사항 대응</h3>
+<table>
+  <tr><th style="width:26%">가이드라인 항목</th><th>구현 내용</th></tr>
+  <tr><td>입력 캔버스</td><td><code>streamlit-drawable-canvas</code>의 <code>st_canvas</code> (280×280, 검은 배경 + 흰 펜, 펜 굵기 조절)</td></tr>
+  <tr><td>전처리 이미지 표시</td><td>모델 입력인 28×28 이미지를 196px로 확대(NEAREST)해 픽셀 단위로 표시</td></tr>
+  <tr><td>모델 추론 결과</td><td>Altair 막대 차트로 0~9 확률 시각화, 예측 레이블만 강조색 · 예측 숫자/확률 지표</td></tr>
+  <tr><td>이미지 저장소</td><td>세션별 갤러리에 그림 썸네일 · 예측 레이블 · 확률(1·2순위) · 저장 시각 표시, 개별/전체 삭제</td></tr>
+  <tr><td>모델 관리 · 캐싱</td><td>디스크 캐시(최초 1회 다운로드) + <code>st.cache_resource</code>로 추론 세션을 프로세스 전체에서 공유</td></tr>
+  <tr><td>전처리 · 추론 함수</td><td><code>model_utils.preprocess()</code>, <code>model_utils.predict()</code>로 UI와 분리된 모듈 구현</td></tr>
+  <tr><td>도커 컨테이너화</td><td><code>python:3.12-slim</code> 기반 Dockerfile, 빌드 시 모델 포함, 비 root 실행, 헬스체크</td></tr>
+  <tr><td>Docker Hub 배포</td><td><code>{{IMAGE}}</code> 로 push 완료 (6장의 자동 기록 참고)</td></tr>
+</table>
+
+<h3>1.2 기술 스택</h3>
+<table>
+  <tr><th style="width:26%">구분</th><th>사용 기술 (고정 버전)</th></tr>
+  <tr><td>웹 UI</td><td>Streamlit 1.66.1, streamlit-drawable-canvas 0.9.3, Altair 6.3.0</td></tr>
+  <tr><td>추론 런타임</td><td>ONNX Runtime 1.29.0 (CPUExecutionProvider)</td></tr>
+  <tr><td>이미지 처리</td><td>NumPy 2.5.3, Pillow 12.3.0, SciPy 1.18.1 (무게중심 계산)</td></tr>
+  <tr><td>배포</td><td>Docker (python:3.12-slim), Docker Hub, 배포 자동화 스크립트 <code>deploy.py</code></td></tr>
+</table>
+
+<h3>1.3 사용 모델 사양</h3>
+<p>ONNX Model Zoo의 <code>validated/vision/classification/mnist/model/mnist-12.onnx</code>(opset 12, 약 26KB)를
+사용하였다. Conv–ReLU–MaxPool 블록 2개와 완전연결층으로 구성된 소형 CNN이다. 모델 그래프를 직접 열어
+확인한 입출력과 모델 설명서의 전처리 조건은 다음과 같다.</p>
+<table>
+  <tr><th style="width:26%">항목</th><th>값</th></tr>
+  <tr><td>입력</td><td><code>Input3</code> · shape (1, 1, 28, 28) · float32 · 검은 배경/흰 글씨 · 값 범위 0.0~1.0</td></tr>
+  <tr><td>출력</td><td><code>Plus214_Output_0</code> · shape (1, 10) · softmax 이전의 점수(logit)</td></tr>
+  <tr><td>후처리</td><td>softmax를 적용하여 10개 클래스 확률(합 = 1)로 변환</td></tr>
+</table>
+
+<h2><span class="no">2.</span>시스템 구성</h2>
+<h3>2.1 처리 흐름</h3>
+<table class="flow"><tr>
+  <td><b>① 캔버스</b>RGBA 280×280<br>마우스 드로잉</td><td class="arrow">→</td>
+  <td><b>전처리</b>흑백 · 크롭<br>20px 리사이즈</td><td class="arrow">→</td>
+  <td><b>② 28×28</b>무게중심 정렬<br>0.0~1.0 정규화</td><td class="arrow">→</td>
+  <td><b>ONNX Runtime</b>캐시된 세션<br>logits (1,10)</td><td class="arrow">→</td>
+  <td><b>③ softmax</b>확률 막대 차트<br>예측 레이블</td><td class="arrow">→</td>
+  <td><b>④ 저장소</b>세션 상태<br>갤러리</td>
+</tr></table>
+<p>Streamlit은 사용자가 위젯과 상호작용할 때마다 스크립트 전체를 다시 실행(rerun)한다. 캔버스에 선을 그을 때마다
+rerun이 발생하므로, 모델 로딩처럼 무거운 작업은 캐시하고 저장소처럼 유지해야 하는 데이터는
+<code>st.session_state</code>에 두는 것이 설계의 핵심이다.</p>
+
+<h3>2.2 파일 구조</h3>
+<pre><code>mnist-app/
+├── app.py                 # Streamlit UI: 4개 화면 영역, 세션 상태, 모델 캐싱
+├── model_utils.py         # 모델 다운로드/디스크 캐시, 전처리, 추론 (UI와 독립)
+├── requirements.txt       # 검증된 버전으로 고정한 의존성
+├── Dockerfile             # 컨테이너 이미지 정의
+├── .dockerignore          # 빌드 컨텍스트 제외 목록
+├── .streamlit/config.toml # 서버(headless) · 테마 설정
+├── deploy.py              # 빌드 → 테스트 → push → 보고서 PDF · 코드 zip 자동 생성
+├── report/template.html   # 이 보고서의 템플릿 (+ 실행 화면 이미지)
+└── README.md              # 실행 · 빌드 · 배포 방법</code></pre>
+
+<h3>2.3 실행 화면</h3>
+<figure>
+  <img src="ui_full.png" style="width:68%">
+  <figcaption>그림 1. 서비스 실행 화면 — ① 입력 캔버스, ② 전처리 이미지, ③ 추론 결과, ④ 이미지 저장소.
+  윗부분이 닫힌 ‘4/9’ 모양을 그리자 모델이 9(50.5%)와 4(49%)를 거의 같은 확률로 판단하는 모습을 확인할 수 있다.</figcaption>
+</figure>
+
+<h2><span class="no">3.</span>코드 설명 — <code>model_utils.py</code></h2>
+<p>모델 관리 · 전처리 · 추론을 담당하는 모듈로, Streamlit에 의존하지 않아 단독 테스트와 재사용이 가능하다.</p>
+
+<h3>3.1 모델 다운로드와 디스크 캐시 — <code>download_model()</code></h3>
+<p>파일이 이미 있으면 네트워크를 사용하지 않고 그대로 반환한다. 다운로드는 임시 파일(<code>.part</code>)에
+받은 뒤 완료되면 교체하여, 중간에 끊겨도 손상된 파일이 남지 않게 했다.</p>
+<pre><code>if path.exists() and path.stat().st_size &gt; _MIN_MODEL_BYTES:
+    return path                                  # 캐시 적중: 재다운로드 없음
+tmp_path = path.with_suffix(".part")
+urllib.request.urlretrieve(url, tmp_path)
+if tmp_path.stat().st_size &lt;= _MIN_MODEL_BYTES:  # LFS 포인터 파일 방지
+    raise RuntimeError(...)
+tmp_path.replace(path)</code></pre>
+<div class="box"><b>트러블슈팅 — Git LFS:</b> 저장소의 <code>.onnx</code> 파일은 Git LFS로 관리되어
+<code>github.com/.../raw/...</code> 주소로 받으면 수백 바이트짜리 포인터 텍스트만 내려온다. 실제 모델(약 26KB)은
+<code>media.githubusercontent.com/media/onnx/models/main/...</code> 주소로 받아야 하며, 크기 검사로 이 실수를 감지한다.</div>
+
+<h3>3.2 이미지 전처리 — <code>preprocess()</code></h3>
+<p>MNIST 데이터셋은 숫자를 20×20 영역에 맞춘 뒤 28×28 이미지의 무게중심에 배치해 만들어졌다.
+캔버스 그림도 같은 방식으로 변환해야 학습 분포와 맞아 정확도가 높다.</p>
+<ol>
+  <li><b>흑백 변환</b>: RGB 평균 × 알파값 → 투명 픽셀은 검정(0)으로 처리</li>
+  <li><b>바운딩 박스 크롭</b>: 획이 있는 영역만 잘라, 캔버스 어디에 그려도 같은 입력이 되도록 함</li>
+  <li><b>20px 리사이즈</b>: 가로세로 비율을 유지하며 긴 변을 20px로 축소 (LANCZOS)</li>
+  <li><b>28×28 배치 + 무게중심 정렬</b>: <code>scipy.ndimage.center_of_mass</code>로 중심을 (14, 14)로 이동</li>
+  <li><b>정규화</b>: 255로 나눠 0.0~1.0 float32 (모델 설명서의 입력 범위)</li>
+</ol>
+<pre><code>cropped = gray[ys.min():ys.max()+1, xs.min():xs.max()+1]
+scale = 20.0 / max(h, w)
+small = Image.fromarray(cropped.astype(np.uint8)).resize((new_w, new_h), Image.LANCZOS)
+canvas[top:top+new_h, left:left+new_w] = np.asarray(small, dtype=np.float32)
+cy, cx = ndimage.center_of_mass(canvas)
+canvas = ndimage.shift(canvas, (14 - cy, 14 - cx), order=1)
+return (np.clip(canvas, 0, 255) / 255.0).astype(np.float32)</code></pre>
+<p>아무것도 그리지 않은 상태(밝기 10 초과 픽셀 없음)에서는 <code>None</code>을 반환하여, UI가 빈 상태 안내를 표시하도록 한다.</p>
+
+<h3>3.3 추론 — <code>create_session()</code>, <code>predict()</code></h3>
+<pre><code>def predict(session, image28):
+    x = image28.reshape(1, 1, 28, 28).astype(np.float32)   # (N, C, H, W)
+    input_name  = session.get_inputs()[0].name             # "Input3"
+    output_name = session.get_outputs()[0].name            # "Plus214_Output_0"
+    logits = session.run([output_name], {input_name: x})[0][0]
+    return softmax(logits)                                  # exp(z - max) / sum</code></pre>
+<p>입출력 이름을 하드코딩하지 않고 세션에서 조회하므로 같은 사양의 다른 MNIST 모델로도 교체할 수 있다.
+softmax는 최댓값을 빼서 계산해 지수 연산의 overflow를 막는다.</p>
+
+<h2><span class="no">4.</span>코드 설명 — <code>app.py</code></h2>
+<h3>4.1 모델 캐싱 — <code>st.cache_resource</code></h3>
+<pre><code>@st.cache_resource(show_spinner="MNIST ONNX 모델을 불러오는 중입니다...")
+def load_model():
+    return mu.create_session()</code></pre>
+<p>모델 캐싱은 두 단계로 동작한다. ① 모델 <b>파일</b>은 디스크에 캐시되어 컨테이너 재시작 후에도 다시 받지 않고,
+② 추론 <b>세션 객체</b>는 <code>st.cache_resource</code>로 서버 프로세스에서 한 번만 생성되어 모든 사용자 세션과 rerun이
+공유한다. 따라서 선 하나를 그을 때마다 발생하는 rerun에서도 모델 로딩 비용이 들지 않는다.
+(측정: 전처리 약 2ms, 추론 약 0.07ms / CPU)</p>
+
+<h3>4.2 세션 상태</h3>
+<table>
+  <tr><th style="width:26%">키</th><th>역할</th></tr>
+  <tr><td><code>gallery</code></td><td>이미지 저장소 목록. 사용자(브라우저 세션)마다 독립적으로 유지되며 최신 항목이 앞에 온다.</td></tr>
+  <tr><td><code>canvas_key</code></td><td>캔버스 위젯 key에 붙는 번호. ‘지우기’ 시 값을 1 올려 새 캔버스를 만들어 그림을 초기화한다.</td></tr>
+</table>
+
+<h3>4.3 네 개의 화면 영역</h3>
+<ul>
+  <li><b>① 입력 캔버스</b>: <code>st_canvas(stroke_color="#FFFFFF", background_color="#000000", drawing_mode="freedraw")</code>.
+      사이드바에서 펜 굵기(8~32)와 실시간 추론 여부(<code>update_streamlit</code>)를 조절한다.</li>
+  <li><b>② 전처리 이미지</b>: 28×28 결과를 NEAREST 보간으로 확대해 실제 모델이 보는 픽셀을 그대로 보여 준다.</li>
+  <li><b>③ 모델 추론 결과</b>: <code>st.metric</code>으로 예측 숫자 · 확률, Altair 막대 차트로 0~9 확률을 표시한다.
+      예측 레이블만 강조색으로 칠하고 1% 이상인 막대에만 수치를 표기했다.</li>
+  <li><b>④ 이미지 저장소</b>: ‘💾 저장’ 시 썸네일 · 전처리 이미지 · 예측 · 확률 · 전체 확률 · 시각을 저장한다.
+      5열 그리드 카드로 표시하며, 헷갈린 경우를 파악하기 쉽도록 2순위 후보도 함께 보여 준다.</li>
+</ul>
+<pre><code>st.session_state.gallery.insert(0, {
+    "thumb": to_thumbnail(raw, THUMB_SIZE), "processed": processed.copy(),
+    "pred": pred, "prob": float(probs[pred]), "probs": probs.tolist(),
+    "time": datetime.now().strftime("%H:%M:%S"),
+})</code></pre>
+
+<h3>4.4 의존성 버전 이슈</h3>
+<div class="box"><code>streamlit-drawable-canvas</code> 0.10.0 이상은 최신 Streamlit(1.66)과 함께 쓰면 import 단계에서
+<i>“must be declared in pyproject.toml with asset_dir”</i> 오류가 발생했다. 버전별로 확인한 결과 0.9.3은 정상 동작하여
+<code>requirements.txt</code>에서 0.9.3으로 고정하고, 나머지 패키지도 검증한 버전으로 모두 고정해 재현 가능한 빌드를 확보하였다.</div>
+
+<h2><span class="no">5.</span>테스트 결과</h2>
+<table>
+  <tr><th style="width:38%">항목</th><th>결과</th></tr>
+  <tr><td>모델 입출력 사양 확인 (onnx 그래프)</td><td><code>Input3</code> (1,1,28,28) → <code>Plus214_Output_0</code> (1,10) 확인</td></tr>
+  <tr><td>폰트로 렌더링한 숫자 30개 (3종 × 0~9)</td><td>29/30 정답 (오답 1건: Liberation Sans 서체의 6 → 5)</td></tr>
+  <tr><td>캔버스 획을 흉내 낸 손글씨 10개</td><td>10/10 정답</td></tr>
+  <tr><td>헤드리스 Chrome으로 실제 UI 조작</td><td>그리기 → 전처리 · 차트 갱신 → 저장 → 지우기 → 저장소 3건 누적 정상 동작</td></tr>
+  <tr><td>빈 캔버스</td><td>추론하지 않고 안내 문구와 빈 차트 표시</td></tr>
+  <tr><td>배포 이미지 컨테이너 실행 (deploy.py 자동)</td><td>{{HEALTH}}</td></tr>
+</table>
+<figure>
+  <img src="ui_top.png" style="width:78%">
+  <figcaption>그림 2. 모호한 입력에서의 확률 분포. 전처리 이미지(②)와 막대 차트(③)를 함께 보면 모델의 판단 근거를 확인할 수 있다.</figcaption>
+</figure>
+
+<h2><span class="no">6.</span>배포 — Docker</h2>
+<h3>6.1 Dockerfile 주요 내용</h3>
+<pre><code>FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 MNIST_MODEL_DIR=/app/models
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --upgrade pip &amp;&amp; pip install -r requirements.txt   # 의존성 레이어 캐시
+COPY model_utils.py app.py ./
+COPY .streamlit/ .streamlit/
+RUN python -c "import model_utils as mu; mu.download_model()"   # 빌드 시 모델 포함
+RUN useradd --create-home appuser &amp;&amp; chown -R appuser /app
+USER appuser                                                     # 비 root 실행
+EXPOSE 8501
+HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]</code></pre>
+<ul>
+  <li><b>레이어 캐시</b>: <code>requirements.txt</code>를 먼저 복사 · 설치하여, 소스만 바뀌면 의존성 설치 단계를 재사용한다.</li>
+  <li><b>모델 내장</b>: 빌드 단계에서 모델을 받아 두므로 컨테이너는 실행 시 외부 네트워크 없이 바로 추론한다.</li>
+  <li><b>보안 · 운영</b>: 일반 사용자로 실행하고, Streamlit 내장 헬스체크 엔드포인트로 컨테이너 상태를 점검한다.</li>
+</ul>
+
+<h3>6.2 배포 자동화 — <code>deploy.py</code></h3>
+<p>아래 명령 하나로 빌드부터 Docker Hub 업로드, 이 보고서와 코드 zip 생성까지 순서대로 실행된다.
+테스트나 업로드가 실패하면 그 자리에서 멈추므로, 배포되지 않은 이미지로 보고서가 만들어지지 않는다.</p>
+<pre><code>python deploy.py --id {{DOCKERHUB_ID}} --team "{{TEAM}}" --name "{{NAME}}"</code></pre>
+<table>
+  <tr><th style="width:6%">#</th><th style="width:30%">단계</th><th>내용</th></tr>
+  <tr><td>1</td><td>이미지 빌드</td><td><code>docker build -t {{IMAGE}} .</code></td></tr>
+  <tr><td>2</td><td>컨테이너 실행 테스트</td><td>임시 포트로 컨테이너를 띄워 <code>/_stcore/health</code> 응답을 확인한 뒤 종료</td></tr>
+  <tr><td>3</td><td>로그인 · 업로드</td><td><code>docker login</code> → <code>docker push {{IMAGE}}</code></td></tr>
+  <tr><td>4</td><td>배포 확인</td><td>Docker Hub API에서 태그가 실제로 올라갔는지 조회</td></tr>
+  <tr><td>5</td><td>보고서 · 코드 생성</td><td>배포 결과를 채운 PDF와 코드 zip을 <code>미션17/{팀명}_{이름}/</code>에 저장</td></tr>
+</table>
+
+<h3>6.3 배포 결과 (deploy.py 자동 기록)</h3>
+<table>
+  <tr><th style="width:26%">항목</th><th>값</th></tr>
+  <tr><td>Docker Hub URL</td><td><span class="hub">{{HUB_URL}}</span></td></tr>
+  <tr><td>이미지</td><td><code>{{IMAGE}}</code></td></tr>
+  <tr><td>Digest</td><td><code>{{DIGEST}}</code></td></tr>
+  <tr><td>플랫폼 · 크기</td><td>{{PLATFORM}} · {{SIZE}}</td></tr>
+  <tr><td>빌드 · 업로드 시각</td><td>{{PUSHED_AT}}</td></tr>
+  <tr><td>Docker 엔진</td><td>{{DOCKER_VERSION}}</td></tr>
+  <tr><td>컨테이너 테스트</td><td>{{HEALTH}}</td></tr>
+  <tr><td>Docker Hub 확인</td><td>{{HUB_CHECK}}</td></tr>
+</table>
+<div class="box">누구나 다음 한 줄로 서비스를 실행할 수 있다:
+<code>docker run -p 8501:8501 {{IMAGE}}</code> → 브라우저에서 <code>http://localhost:8501</code></div>
+
+<h2><span class="no">7.</span>정리 및 개선 방향</h2>
+<ul>
+  <li>Streamlit의 rerun 구조에 맞춰 <b>모델은 캐시, 사용자 데이터는 세션 상태</b>로 분리하여 실시간 추론에도 지연 없이 동작한다.</li>
+  <li>MNIST 데이터셋 생성 방식(20px 맞춤 + 무게중심 정렬)을 그대로 재현한 전처리가 인식 정확도에 가장 큰 영향을 주었다.</li>
+  <li>빌드 · 테스트 · 배포 · 보고서 작성을 스크립트로 묶어, 보고서의 배포 정보가 항상 실제 배포 결과와 일치하도록 했다.</li>
+  <li>개선 방향: 저장소를 DB/객체 스토리지에 영구 저장, 사용자 정답 라벨 수집으로 오분류 데이터 축적 및 재학습,
+      여러 숫자를 한 번에 인식하는 분할(segmentation) 기능, GitHub Actions를 이용한 이미지 자동 빌드 · 배포.</li>
+</ul>
+
+<div class="footer">이 보고서는 <code>deploy.py</code>가 {{GENERATED_AT}}에 배포 결과를 바탕으로 자동 생성하였습니다.</div>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+# 검증된 버전 조합으로 고정 (Python 3.12 기준)
+streamlit==1.66.1
+# 0.10.0 이상은 최신 Streamlit 과 조합 시 컴포넌트 등록 오류가 발생하여 0.9.3 으로 고정
+streamlit-drawable-canvas==0.9.3
+onnxruntime==1.29.0
+numpy==2.5.3
+pandas==3.0.5
+pillow==12.3.0
+scipy==1.18.1
+altair==6.3.0
