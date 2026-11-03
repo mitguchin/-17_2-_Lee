@@ -65,3 +65,5 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 |---|---|---|
 | `MNIST_MODEL_URL` | ONNX Model Zoo mnist-12 (LFS 주소) | 모델 다운로드 URL |
 | `MNIST_MODEL_DIR` | `./models` (컨테이너: `/app/models`) | 모델 저장 경로 |
+
+**사이트 주소**: https://un76gyvzdbbvtcsvno7msm.streamlit.app/
